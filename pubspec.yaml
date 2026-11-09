@@ -1,0 +1,32 @@
+name: teleponter
+description: "Teleponter - teleprompter libre para Windows y Android (port de Textream)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  speech_to_text: ^7.5.0
+  record: ">=6.0.0 <8.0.0"
+  window_manager: ^0.5.1
+  screen_retriever: ^0.2.0
+  shared_preferences: ^2.3.0
+  file_picker: ^13.3.0
+  qr_flutter: ^4.1.0
+  camera: ">=0.11.0 <0.13.0"
+  gal: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: OpenDyslexic
+      fonts:
+        - asset: assets/fonts/OpenDyslexic3-Regular.ttf
