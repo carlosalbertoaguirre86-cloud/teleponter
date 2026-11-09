@@ -38,8 +38,6 @@ def patch_android():
         '<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>',
         '<uses-permission android:name="android.permission.BLUETOOTH"/>',
         '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>',
-        '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>',
-        '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>',
     ]
     for p in perms:
         name = re.search(r'android:name="([^"]+)"', p).group(1)
