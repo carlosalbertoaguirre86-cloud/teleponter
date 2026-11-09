@@ -93,7 +93,7 @@ function handle(s){
   S.textContent=s.isActive?(s.isPaused?'En pausa':s.isMuted?'Micrófono silenciado':s.isListening?'Escuchando…':'Activo'):'Teleprompter detenido';
   const words=s.words.join(' ');
   if(s.isActive&&words){
-    const h=Math.min(s.highlightedCharCount,words.length);
+    const h=Math.min(s.confirmedCharCount??s.highlightedCharCount,words.length);
     // Lo leído queda bloqueado; sólo se edita lo pendiente.
     R.style.display=h>0?'block':'none';
     if(R.textContent!==words.slice(0,h)){R.textContent=words.slice(0,h);R.scrollTop=R.scrollHeight}

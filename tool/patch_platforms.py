@@ -38,6 +38,10 @@ def patch_android():
         '<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>',
         '<uses-permission android:name="android.permission.BLUETOOTH"/>',
         '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>',
+        '<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>',
+        '<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>',
+        '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>',
+        '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
     ]
     for p in perms:
         name = re.search(r'android:name="([^"]+)"', p).group(1)
@@ -54,6 +58,19 @@ def patch_android():
             m = m.replace(
                 "</manifest>", "    <queries>" + block + "\n    </queries>\n</manifest>", 1
             )
+    overlay_service = "flutter.overlay.window.flutter_overlay_window.OverlayService"
+    if overlay_service not in m:
+        m = m.replace(
+            "</application>",
+            '    <service android:name="' + overlay_service + '"\n'
+            '            android:exported="false"\n'
+            '            android:foregroundServiceType="specialUse">\n'
+            '            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"\n'
+            '                android:value="Teleprompter flotante sobre otras apps"/>\n'
+            "        </service>\n"
+            "    </application>",
+            1,
+        )
     m = re.sub(r'android:label="[^"]*"', 'android:label="Teleponter"', m, count=1)
     if "requestLegacyExternalStorage" not in m:
         m = m.replace("<application", '<application\n        android:requestLegacyExternalStorage="true"', 1)

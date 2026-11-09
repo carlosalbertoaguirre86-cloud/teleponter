@@ -43,11 +43,24 @@ class PrompterController extends ChangeNotifier {
   /// Posición en palabras (fraccional en los modos de desplazamiento).
   double wordPosition = 0;
 
-  /// Caracteres leídos dentro de [collapsed].
-  int get highlightedCharCount => switch (mode) {
-        GuidanceMode.wordTracking => _tracker.recognizedCharCount,
-        _ => _charsForWordPosition(wordPosition),
-      };
+  /// Caracteres resaltados (lo que se muestra) dentro de [collapsed].
+  int get highlightedCharCount => _charsForWordPosition(wordPosition);
+
+  /// Caracteres confirmados por el reconocedor de voz.
+  int get confirmedCharCount => mode == GuidanceMode.wordTracking
+      ? _tracker.recognizedCharCount
+      : highlightedCharCount;
+
+  // Anticipación en el seguimiento de voz: el reconocedor entrega los
+  // resultados con ~0,5 s de retraso, así que mientras hablas el resaltado
+  // avanza solo a tu ritmo (hasta [_maxLeadWords] por delante de lo
+  // confirmado) y se corrige con cada resultado.
+  static const double _maxLeadWords = 2.0;
+  int _lastTranscriptMs = -100000;
+  String _lastTranscript = '';
+  double _speechRate = 2.5; // palabras/seg estimadas
+  int _lastConfirmMs = -1;
+  int _lastConfirmWord = 0;
 
   bool active = false; // teleprompter visible
   bool paused = false;
@@ -122,6 +135,9 @@ class PrompterController extends ChangeNotifier {
     annotation = annotationFlags(words);
     _tracker.reset(text);
     wordPosition = 0;
+    _lastConfirmMs = -1;
+    _lastConfirmWord = 0;
+    _lastTranscriptMs = -100000;
     _skipAnnotationsForward();
     done = false;
     countdown = null;
@@ -165,6 +181,17 @@ class PrompterController extends ChangeNotifier {
             words.length.toDouble(), wordPosition + settings.speed * dt);
         _skipAnnotationsForward();
         changed = true;
+      } else if (mode == GuidanceMode.wordTracking &&
+          !muted &&
+          now - _lastTranscriptMs < 1200) {
+        final confirmed =
+            _wordIndexForChar(_tracker.recognizedCharCount).toDouble();
+        final limit = math.min(
+            confirmed + _maxLeadWords, math.max(0.0, words.length - 1.0));
+        if (wordPosition < limit) {
+          wordPosition = math.min(limit, wordPosition + _speechRate * dt);
+          changed = true;
+        }
       }
     }
     if (mode != GuidanceMode.classic) {
@@ -230,9 +257,25 @@ class PrompterController extends ChangeNotifier {
     if (!active || paused || muted || mode != GuidanceMode.wordTracking) {
       return;
     }
+    final now = _clock.elapsedMilliseconds;
+    if (text != _lastTranscript) {
+      _lastTranscript = text;
+      _lastTranscriptMs = now;
+    }
     lastSpokenText = text;
     if (_tracker.process(text)) {
-      wordPosition = _wordIndexForChar(_tracker.recognizedCharCount).toDouble();
+      final word = _wordIndexForChar(_tracker.recognizedCharCount);
+      // Ritmo de lectura (media móvil) para anticipar el resaltado.
+      if (_lastConfirmMs >= 0 && word > _lastConfirmWord) {
+        final secs = (now - _lastConfirmMs) / 1000.0;
+        if (secs > 0.15 && secs < 4) {
+          final inst = (word - _lastConfirmWord) / secs;
+          _speechRate = (_speechRate * 0.7 + inst * 0.3).clamp(1.2, 5.0);
+        }
+      }
+      _lastConfirmMs = now;
+      _lastConfirmWord = word;
+      wordPosition = math.max(wordPosition, word.toDouble());
       _checkFinished();
     }
     notifyListeners();
@@ -253,11 +296,18 @@ class PrompterController extends ChangeNotifier {
   }
 
   int _wordIndexForChar(int chars) {
-    var lo = 0;
-    for (var i = 0; i < wordOffsets.length; i++) {
-      if (wordOffsets[i] <= chars) lo = i;
+    if (chars >= collapsed.length) return words.length;
+    var lo = 0, hi = wordOffsets.length - 1, ans = 0;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      if (wordOffsets[mid] <= chars) {
+        ans = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
     }
-    return chars >= collapsed.length ? words.length : lo;
+    return ans;
   }
 
   // ---------------------------------------------------------------------

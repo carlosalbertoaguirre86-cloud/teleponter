@@ -18,6 +18,7 @@ Map<String, Object?> prompterState(PrompterController c) {
     'words': c.words,
     'annotation': c.annotation,
     'highlightedCharCount': c.highlightedCharCount,
+    'confirmedCharCount': c.confirmedCharCount,
     'totalCharCount': c.collapsed.length,
     'wordPosition': c.wordPosition,
     'audioLevels': c.levels,
@@ -181,7 +182,7 @@ class DirectorServer extends _LocalServer {
         }
       case 'updateText':
         final read = (msg['readCharCount'] as num?)?.toInt() ??
-            controller.highlightedCharCount;
+            controller.confirmedCharCount;
         controller.directorUpdateText(text, read);
       case 'stop':
         controller.onFinished?.call();

@@ -18,6 +18,7 @@ class PrompterText extends StatefulWidget {
     this.mirror,
     this.fontScale = 1.0,
     this.overCamera = false,
+    this.anchor,
   });
 
   final PrompterController controller;
@@ -25,6 +26,10 @@ class PrompterText extends StatefulWidget {
   final MirrorMode? mirror;
   final double fontScale;
   final bool overCamera;
+
+  /// Posición fija (px desde arriba) de la línea que se está leyendo.
+  /// Si es null se usa la configuración (arriba o centrada).
+  final double? anchor;
 
   @override
   State<PrompterText> createState() => _PrompterTextState();
@@ -168,14 +173,16 @@ class _PrompterTextState extends State<PrompterText>
     final pos = c.wordPosition;
     final i = pos.floor();
     var y = _yForWord(i);
-    if (c.mode != GuidanceMode.wordTracking && i + 1 <= c.words.length) {
+    if (i + 1 <= c.words.length) {
       final y2 = _yForWord(i + 1);
       y += (y2 - y) * (pos - i);
     }
-    final anchor =
-        height * (s.readingLineTop ? (widget.compact ? 0.12 : 0.22) : 0.42);
-    return y - anchor;
+    return y - _anchor(height);
   }
+
+  double _anchor(double height) =>
+      widget.anchor ??
+      height * (s.readingLineTop ? (widget.compact ? 0.12 : 0.22) : 0.42);
 
   void _handleTap(Offset local, Size size) {
     final p = _painter;
@@ -223,12 +230,10 @@ class _PrompterTextState extends State<PrompterText>
           painter: _painter!,
           scroll: _scroll,
           padding: _padding,
-          readingLine: s.readingLineTop
-              ? size.height * (widget.compact ? 0.12 : 0.22)
-              : size.height * 0.42,
+          readingLine: _anchor(size.height),
           lineHeight: _fontSize * 1.35,
-          showLine: !widget.compact,
-          fades: !widget.overCamera,
+          showLine: !widget.compact && widget.anchor == null,
+          fades: !widget.overCamera && widget.anchor == null,
         ),
       );
       if (sx != 1 || sy != 1) {

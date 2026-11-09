@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_state.dart';
+import 'overlay/overlay_app.dart';
 import 'core/settings.dart';
 import 'services/window_service.dart';
 import 'ui/home_page.dart';
@@ -16,6 +17,10 @@ Future<void> main() async {
   final state = AppState(settings);
   runApp(AppScope(state: state, child: const TeleponterApp()));
 }
+
+/// Entrada de la ventana flotante de Android (la llama flutter_overlay_window).
+@pragma('vm:entry-point')
+void overlayMain() => runOverlayApp();
 
 class TeleponterApp extends StatelessWidget {
   const TeleponterApp({super.key});

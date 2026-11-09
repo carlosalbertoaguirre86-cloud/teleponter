@@ -183,6 +183,27 @@ class _SettingsPageState extends State<SettingsPage> {
                   onChanged: (v) => s.hideFromCapture = v,
                 ),
             ],
+            if (Platform.isAndroid) ...[
+              _header('Móvil (Android)'),
+              SwitchListTile(
+                title: const Text('Franja junto a la cámara frontal'),
+                subtitle: const Text(
+                    'El texto ocupa una franja estrecha arriba, pegada al lente, para que no se note que lees.'),
+                value: s.phoneBand,
+                onChanged: (v) => s.phoneBand = v,
+              ),
+              if (s.phoneBand) ...[
+                _slider('Líneas visibles en la franja', s.bandLines, 1, 8, 7,
+                    (v) => s.bandLines = v,
+                    label: s.bandLines.round().toString()),
+                _slider('Ancho de la franja', s.bandWidth, 0.4, 1, 12,
+                    (v) => s.bandWidth = v,
+                    label: '${(s.bandWidth * 100).round()} %'),
+              ],
+              _slider('Líneas de la ventana flotante', s.floatLines, 1, 8, 7,
+                  (v) => s.floatLines = v,
+                  label: s.floatLines.round().toString()),
+            ],
             _header('Texto'),
             ListTile(
               title: const Text('Tipo de letra'),

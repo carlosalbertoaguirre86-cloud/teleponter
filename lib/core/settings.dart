@@ -57,14 +57,83 @@ List<String>? fontFallbackFor(PromptFont f) => switch (f) {
       _ => null,
     };
 
+/// Almacén de ajustes: SharedPreferences en la app, memoria en la ventana
+/// flotante de Android (que corre en un motor aparte).
+abstract class SettingsStore {
+  Object? get(String key);
+  void set(String key, Object value);
+
+  String? getString(String k) => get(k) as String?;
+  double? getDouble(String k) => (get(k) as num?)?.toDouble();
+  bool? getBool(String k) => get(k) as bool?;
+  int? getInt(String k) => (get(k) as num?)?.toInt();
+  List<String>? getStringList(String k) => (get(k) as List?)?.cast<String>();
+  void setString(String k, String v) => set(k, v);
+  void setDouble(String k, double v) => set(k, v);
+  void setBool(String k, bool v) => set(k, v);
+  void setInt(String k, int v) => set(k, v);
+  void setStringList(String k, List<String> v) => set(k, v);
+}
+
+class _PrefsStore extends SettingsStore {
+  _PrefsStore(this.prefs);
+  final SharedPreferences prefs;
+
+  @override
+  Object? get(String key) => prefs.get(key);
+
+  @override
+  void set(String key, Object value) {
+    switch (value) {
+      case String v:
+        prefs.setString(key, v);
+      case bool v:
+        prefs.setBool(key, v);
+      case int v:
+        prefs.setInt(key, v);
+      case double v:
+        prefs.setDouble(key, v);
+      case List v:
+        prefs.setStringList(key, v.cast<String>());
+    }
+  }
+}
+
+class MemoryStore extends SettingsStore {
+  MemoryStore([Map<String, Object?>? initial]) : values = {...?initial};
+  final Map<String, Object?> values;
+
+  @override
+  Object? get(String key) => values[key];
+
+  @override
+  void set(String key, Object value) => values[key] = value;
+}
+
 class AppSettings extends ChangeNotifier {
   AppSettings._(this._prefs);
-  final SharedPreferences _prefs;
+  AppSettings.memory([Map<String, Object?>? values])
+      : _prefs = MemoryStore(values);
+  final SettingsStore _prefs;
 
   static Future<AppSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
-    return AppSettings._(prefs);
+    return AppSettings._(_PrefsStore(prefs));
   }
+
+  /// Copia de los ajustes visuales para la ventana flotante.
+  Map<String, Object?> exportVisual() => {
+        for (final k in const [
+          'speed',
+          'font',
+          'fontSize',
+          'highlight',
+          'mirror',
+          'floatHeight',
+          'floatLines',
+        ])
+          if (_prefs.get(k) != null) k: _prefs.get(k),
+      };
 
   T _enum<T extends Enum>(String key, List<T> values, T def) {
     final name = _prefs.getString(key);
@@ -153,6 +222,23 @@ class AppSettings extends ChangeNotifier {
 
   bool get autoAdvancePages => _b('autoAdvance', true);
   set autoAdvancePages(bool v) => _setB('autoAdvance', v);
+
+  // Android: franja de lectura junto a la cámara frontal
+  /// true = el texto ocupa una franja estrecha arriba, pegada a la cámara.
+  bool get phoneBand => _b('phoneBand', true);
+  set phoneBand(bool v) => _setB('phoneBand', v);
+
+  /// Líneas visibles en la franja.
+  double get bandLines => _d('bandLines', 3);
+  set bandLines(double v) => _setD('bandLines', v);
+
+  /// Ancho de la franja (fracción de la pantalla), centrada bajo la cámara.
+  double get bandWidth => _d('bandWidth', 0.8);
+  set bandWidth(double v) => _setD('bandWidth', v);
+
+  /// Ventana flotante de Android: líneas de texto visibles.
+  double get floatLines => _d('floatLines', 3);
+  set floatLines(double v) => _setD('floatLines', v);
 
   // Remoto / Director
   bool get remoteEnabled => _b('remoteEnabled', false);

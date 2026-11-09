@@ -11,6 +11,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../app_state.dart';
 import '../core/pptx_notes.dart';
 import '../core/settings.dart';
+import '../services/floating_service.dart';
 import '../services/prompter_controller.dart';
 import '../services/window_service.dart';
 import 'prompter_screen.dart';
@@ -257,6 +258,49 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Android: abre el teleprompter en una ventana flotante encima de
+  /// cualquier app (cámara, Instagram, TikTok, Zoom...).
+  Future<void> _startFloating() async {
+    final p = app.prompter;
+    if (p.pages.every((t) => t.trim().isEmpty)) {
+      _snack('Escribe o pega un guion primero.');
+      return;
+    }
+    if (!await FloatingService.hasPermission()) {
+      if (!mounted) return;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Permiso necesario'),
+          content: const Text(
+              'Para que el teleprompter flote encima de otras apps, Android pide '
+              'activar "Mostrar sobre otras apps" para Teleponter.\n\n'
+              'Se abrirá la pantalla de ajustes: activa el interruptor y vuelve.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Abrir ajustes')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      if (!await FloatingService.requestPermission()) {
+        _snack('Sin el permiso no se puede mostrar la ventana flotante.');
+        return;
+      }
+    }
+    await FloatingService.show(
+      settings: app.settings,
+      pages: List.of(p.pages),
+      pageIndex: p.pageIndex,
+    );
+    _snack('Ventana flotante activa. Abre la app con la que vas a grabar y '
+        'pulsa ▶ en la ventana. En modo flotante el texto avanza a velocidad fija.');
+  }
+
   void _showQr(String title, String url, String help) {
     showDialog<void>(
       context: context,
@@ -437,6 +481,15 @@ class _HomePageState extends State<HomePage> {
                     onPressed: () => _start(fromFirst: true),
                     icon: const Icon(Icons.replay),
                     label: const Text('Desde pág. 1'),
+                  ),
+                ),
+              if (Platform.isAndroid)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilledButton.tonalIcon(
+                    onPressed: _startFloating,
+                    icon: const Icon(Icons.picture_in_picture_alt),
+                    label: const Text('Flotante'),
                   ),
                 ),
               if (Platform.isAndroid)

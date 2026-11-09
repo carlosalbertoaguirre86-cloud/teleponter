@@ -175,7 +175,87 @@ class _PrompterScreenState extends State<PrompterScreen> {
   // ---------------------------------------------------------------------
   // Completo (pantalla completa / Android)
 
+  /// Android: franja estrecha pegada a la cámara frontal, para que la
+  /// mirada quede junto al lente y no se note que lees.
+  Widget _buildBand(BuildContext context) {
+    final cam = _camera;
+    final lineH = s.fontSize * 1.35;
+    final bandH = lineH * s.bandLines.clamp(1, 12) + 14;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(children: [
+        if (_showCamera && cam != null)
+          Positioned.fill(child: CameraPreviewLayer(controller: cam)),
+        SafeArea(
+          child: Column(children: [
+            LayoutBuilder(builder: (context, box) {
+              final w = box.maxWidth * s.bandWidth.clamp(0.4, 1.0);
+              return Center(
+                child: Container(
+                  width: w,
+                  height: bandH,
+                  decoration: BoxDecoration(
+                    color:
+                        Colors.black.withValues(alpha: _showCamera ? 0.6 : 1),
+                    borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(18)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(children: [
+                    Positioned.fill(
+                      child: PrompterText(
+                        controller: c,
+                        anchor: 6,
+                        overCamera: _showCamera,
+                      ),
+                    ),
+                    _overlays(),
+                  ]),
+                ),
+              );
+            }),
+            const Spacer(),
+            if (cam != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _recordControls(cam, Axis.horizontal),
+              ),
+            _controlPanel(),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _controlPanel() {
+    return Container(
+      color: _showCamera ? Colors.black54 : const Color(0xFF111113),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          Waveform(levels: c.levels, active: c.isListening),
+          const SizedBox(width: 10),
+          Expanded(child: _progress()),
+          const SizedBox(width: 10),
+          Text(
+            c.pages.length > 1
+                ? 'Pág. ${c.pageIndex + 1}/${c.pages.length}'
+                : guidanceLabels[c.mode]!,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+        ]),
+        // Wrap: en pantallas estrechas los botones pasan a otra fila.
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: _controls(compact: false),
+        ),
+      ]),
+    );
+  }
+
   Widget _buildFull(BuildContext context) {
+    if (Platform.isAndroid && s.phoneBand) return _buildBand(context);
     final cam = _camera;
     return Scaffold(
       backgroundColor: Colors.black,
@@ -205,30 +285,7 @@ class _PrompterScreenState extends State<PrompterScreen> {
                     _overlays(),
                   ]),
                 ),
-                Container(
-                  color: _showCamera ? Colors.black54 : const Color(0xFF111113),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Row(children: [
-                      Waveform(levels: c.levels, active: c.isListening),
-                      const SizedBox(width: 10),
-                      Expanded(child: _progress()),
-                      const SizedBox(width: 10),
-                      Text(
-                        c.pages.length > 1
-                            ? 'Pág. ${c.pageIndex + 1}/${c.pages.length}'
-                            : guidanceLabels[c.mode]!,
-                        style: const TextStyle(
-                            color: Colors.white54, fontSize: 12),
-                      ),
-                    ]),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(children: _controls(compact: false)),
-                    ),
-                  ]),
-                ),
+                _controlPanel(),
               ],
             ),
           ),
@@ -242,45 +299,49 @@ class _PrompterScreenState extends State<PrompterScreen> {
     return Positioned(
       right: 16,
       top: MediaQuery.paddingOf(context).top + 16,
-      child: ListenableBuilder(
-        listenable: cam,
-        builder: (context, _) {
-          if (cam.message != null) {
-            final msg = cam.message!;
-            cam.message = null;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text(msg)));
-              }
-            });
-          }
-          return Column(children: [
-            FloatingActionButton(
-              heroTag: 'rec',
-              backgroundColor: cam.recording ? Colors.white : Colors.red,
-              onPressed: cam.ready ? cam.toggleRecording : null,
-              tooltip: cam.recording ? 'Detener grabación' : 'Grabar vídeo',
-              child: cam.busy
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(cam.recording ? Icons.stop : Icons.fiber_manual_record,
-                      color: cam.recording ? Colors.red : Colors.white),
+      child: _recordControls(cam, Axis.vertical),
+    );
+  }
+
+  Widget _recordControls(CameraLayerController cam, Axis axis) {
+    return ListenableBuilder(
+      listenable: cam,
+      builder: (context, _) {
+        if (cam.message != null) {
+          final msg = cam.message!;
+          cam.message = null;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(msg)));
+            }
+          });
+        }
+        return Flex(direction: axis, mainAxisSize: MainAxisSize.min, children: [
+          FloatingActionButton(
+            heroTag: 'rec',
+            backgroundColor: cam.recording ? Colors.white : Colors.red,
+            onPressed: cam.ready ? cam.toggleRecording : null,
+            tooltip: cam.recording ? 'Detener grabación' : 'Grabar vídeo',
+            child: cam.busy
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : Icon(cam.recording ? Icons.stop : Icons.fiber_manual_record,
+                    color: cam.recording ? Colors.red : Colors.white),
+          ),
+          const SizedBox(height: 12, width: 16),
+          if (cam.canSwitch)
+            FloatingActionButton.small(
+              heroTag: 'flip',
+              backgroundColor: Colors.black54,
+              onPressed: cam.switchCamera,
+              tooltip: 'Cambiar cámara',
+              child: const Icon(Icons.cameraswitch, color: Colors.white),
             ),
-            const SizedBox(height: 12),
-            if (cam.canSwitch)
-              FloatingActionButton.small(
-                heroTag: 'flip',
-                backgroundColor: Colors.black54,
-                onPressed: cam.switchCamera,
-                tooltip: 'Cambiar cámara',
-                child: const Icon(Icons.cameraswitch, color: Colors.white),
-              ),
-          ]);
-        },
-      ),
+        ]);
+      },
     );
   }
 
