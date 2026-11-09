@@ -188,7 +188,7 @@ class _SettingsPageState extends State<SettingsPage> {
               SwitchListTile(
                 title: const Text('Franja junto a la cámara frontal'),
                 subtitle: const Text(
-                    'El texto ocupa una franja estrecha arriba, pegada al lente, para que no se note que lees.'),
+                    'El texto ocupa una franja estrecha arriba, pegada al lente, para que no se note que lees. La ventana flotante usa el mismo tamaño.'),
                 value: s.phoneBand,
                 onChanged: (v) => s.phoneBand = v,
               ),
@@ -200,9 +200,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     (v) => s.bandWidth = v,
                     label: '${(s.bandWidth * 100).round()} %'),
               ],
-              _slider('Líneas de la ventana flotante', s.floatLines, 1, 8, 7,
-                  (v) => s.floatLines = v,
-                  label: s.floatLines.round().toString()),
             ],
             _header('Texto'),
             ListTile(

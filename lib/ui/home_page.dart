@@ -262,6 +262,7 @@ class _HomePageState extends State<HomePage> {
   /// cualquier app (cámara, Instagram, TikTok, Zoom...).
   Future<void> _startFloating() async {
     final p = app.prompter;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     if (p.pages.every((t) => t.trim().isEmpty)) {
       _snack('Escribe o pega un guion primero.');
       return;
@@ -296,6 +297,7 @@ class _HomePageState extends State<HomePage> {
       settings: app.settings,
       pages: List.of(p.pages),
       pageIndex: p.pageIndex,
+      screenWidth: screenWidth,
     );
     _snack('Ventana flotante activa. Abre la app con la que vas a grabar y '
         'pulsa ▶ en la ventana. En modo flotante el texto avanza a velocidad fija.');

@@ -129,8 +129,7 @@ class AppSettings extends ChangeNotifier {
           'fontSize',
           'highlight',
           'mirror',
-          'floatHeight',
-          'floatLines',
+          'bandLines',
         ])
           if (_prefs.get(k) != null) k: _prefs.get(k),
       };
@@ -235,10 +234,6 @@ class AppSettings extends ChangeNotifier {
   /// Ancho de la franja (fracción de la pantalla), centrada bajo la cámara.
   double get bandWidth => _d('bandWidth', 0.8);
   set bandWidth(double v) => _setD('bandWidth', v);
-
-  /// Ventana flotante de Android: líneas de texto visibles.
-  double get floatLines => _d('floatLines', 3);
-  set floatLines(double v) => _setD('floatLines', v);
 
   // Remoto / Director
   bool get remoteEnabled => _b('remoteEnabled', false);

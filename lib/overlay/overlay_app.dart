@@ -31,6 +31,7 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
   AppSettings? _settings;
   PrompterController? _c;
   String _lastKey = '';
+  double _designH = 0; // alto previsto en dp
 
   @override
   void initState() {
@@ -55,16 +56,15 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
     final old = _c;
     final c = PrompterController(settings)
       ..pages = pages.isEmpty ? [''] : pages;
-    c.onFinished = () => c.togglePause();
     await old?.stop();
     old?.dispose();
     setState(() {
       _settings = settings;
       _c = c;
+      _designH = (msg['height'] as num?)?.toDouble() ?? 0;
     });
-    await c.start(fromPage: page);
     // Empieza en pausa: pulsa ▶ cuando estés listo para grabar.
-    await c.togglePause();
+    await c.start(fromPage: page);
   }
 
   Future<void> _close() async {
@@ -76,12 +76,35 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
   Widget build(BuildContext context) {
     final c = _c;
     final s = _settings;
+    // En algunos móviles el motor de la ventana flotante no recibe la
+    // densidad de pantalla y todo se ve diminuto. Si el espacio real es
+    // mucho mayor que el previsto, se escala el contenido para llenarlo.
+    return LayoutBuilder(builder: (context, box) {
+      var scale = 1.0;
+      if (_designH > 0 && box.maxHeight.isFinite) {
+        final r = box.maxHeight / _designH;
+        if (r > 1.3 || r < 0.75) scale = r;
+      }
+      final content = _content(c, s);
+      if (scale == 1.0) return content;
+      return FittedBox(
+        fit: BoxFit.fill,
+        child: SizedBox(
+          width: box.maxWidth / scale,
+          height: box.maxHeight / scale,
+          child: content,
+        ),
+      );
+    });
+  }
+
+  Widget _content(PrompterController? c, AppSettings? s) {
     return Material(
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(18),
         ),
         clipBehavior: Clip.antiAlias,
         child: c == null || s == null
@@ -96,10 +119,11 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
                       controller: c,
                       compact: true,
                       fontScale: 1 / 0.75,
-                      anchor: 4,
+                      anchor: 6,
+                      overCamera: true,
                     ),
                   ),
-                  SizedBox(height: 40, child: _controls(c, s)),
+                  SizedBox(height: 44, child: _controls(c, s)),
                 ]),
               ),
       ),
@@ -114,33 +138,40 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
         );
-    return Row(children: [
-      const SizedBox(width: 6),
+    return Column(children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: LinearProgressIndicator(
+          value: c.progress,
+          minHeight: 3,
+          backgroundColor: Colors.white12,
+          color: s.highlightColor,
+        ),
+      ),
       Expanded(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(
-            value: c.progress,
-            minHeight: 3,
-            backgroundColor: Colors.white12,
-            color: s.highlightColor,
+        child: Center(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              btn(Icons.replay, () => c.restart(play: false)),
+              btn(Icons.fast_rewind, () => c.skipWords(-6)),
+              btn((c.paused || c.done) ? Icons.play_arrow : Icons.pause,
+                  c.togglePause,
+                  color: (c.paused || c.done) ? s.highlightColor : null),
+              btn(Icons.fast_forward, () => c.skipWords(6)),
+              btn(Icons.remove, () => c.setSpeed(s.speed - 0.25)),
+              Text(s.speed.toStringAsFixed(1),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              btn(Icons.add, () => c.setSpeed(s.speed + 0.25)),
+              btn(Icons.text_decrease,
+                  () => s.fontSize = (s.fontSize - 2).clamp(14, 72)),
+              btn(Icons.text_increase,
+                  () => s.fontSize = (s.fontSize + 2).clamp(14, 72)),
+              btn(Icons.close, _close),
+            ]),
           ),
         ),
       ),
-      if (c.pages.length > 1) btn(Icons.skip_previous, c.previousPage),
-      btn(c.paused ? Icons.play_arrow : Icons.pause, c.togglePause,
-          color: c.paused ? s.highlightColor : null),
-      if (c.pages.length > 1) btn(Icons.skip_next, c.nextPage),
-      btn(Icons.remove, () => c.setSpeed(s.speed - 0.25)),
-      Text(s.speed.toStringAsFixed(1),
-          style: const TextStyle(color: Colors.white70, fontSize: 12)),
-      btn(Icons.add, () => c.setSpeed(s.speed + 0.25)),
-      btn(Icons.text_decrease,
-          () => s.fontSize = (s.fontSize - 2).clamp(14, 72)),
-      btn(Icons.text_increase,
-          () => s.fontSize = (s.fontSize + 2).clamp(14, 72)),
-      btn(Icons.close, _close),
-      const SizedBox(width: 4),
     ]);
   }
 }

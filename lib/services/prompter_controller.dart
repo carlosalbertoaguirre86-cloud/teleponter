@@ -98,7 +98,9 @@ class PrompterController extends ChangeNotifier {
   // ---------------------------------------------------------------------
   // Ciclo de vida
 
-  Future<void> start({int? fromPage}) async {
+  /// Prepara el teleprompter. Por defecto queda EN PAUSA: el texto no se
+  /// mueve hasta que pulses ▶ (o empieces a grabar).
+  Future<void> start({int? fromPage, bool startPaused = true}) async {
     mode = settings.guidance;
     _speech.localeId = settings.speechLocale;
     var idx = fromPage ?? pageIndex;
@@ -107,7 +109,7 @@ class PrompterController extends ChangeNotifier {
     }
     error = null;
     active = true;
-    paused = false;
+    paused = startPaused;
     done = false;
     _loadPage(idx);
     await _startAudio();
@@ -244,9 +246,9 @@ class PrompterController extends ChangeNotifier {
         }
       });
     } else if (next == null) {
-      Timer(const Duration(milliseconds: 1200), () {
-        if (active && done) onFinished?.call();
-      });
+      // Fin del guion: se queda en pausa; ▶ o "Repetir" vuelve a empezar.
+      paused = true;
+      _stopAudio();
     }
   }
 
@@ -314,6 +316,10 @@ class PrompterController extends ChangeNotifier {
   // Acciones del usuario
 
   Future<void> togglePause() async {
+    if (done && countdown == null) {
+      await restart();
+      return;
+    }
     paused = !paused;
     if (paused) {
       await _stopAudio();
@@ -332,6 +338,32 @@ class PrompterController extends ChangeNotifier {
       await _startAudio();
     }
     notifyListeners();
+  }
+
+  /// Vuelve al principio de la página actual y arranca.
+  Future<void> restart({bool play = true}) async {
+    _countdownTimer?.cancel();
+    _loadPage(pageIndex);
+    _tracker.beginNewTranscript();
+    if (play) {
+      paused = false;
+      await _stopAudio();
+      await _startAudio();
+      _lastTickMs = _clock.elapsedMilliseconds;
+    }
+    notifyListeners();
+  }
+
+  /// Arranca si está en pausa (por ejemplo, al empezar a grabar).
+  Future<void> play() async {
+    if (paused || done) await togglePause();
+  }
+
+  /// Retrocede (negativo) o avanza unas palabras con los botones.
+  void skipWords(double n) {
+    countdown = null;
+    _countdownTimer?.cancel();
+    nudge(n);
   }
 
   void jumpToWord(int index) {
@@ -388,7 +420,7 @@ class PrompterController extends ChangeNotifier {
       _loadPage(0);
       notifyListeners();
     } else {
-      await start(fromPage: 0);
+      await start(fromPage: 0, startPaused: false);
     }
   }
 

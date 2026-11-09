@@ -51,23 +51,29 @@ class FloatingService {
     required AppSettings settings,
     required List<String> pages,
     required int pageIndex,
+    required double screenWidth,
   }) async {
+    // Mismo tamaño que la franja de la app: ancho y líneas de Ajustes.
+    final widthDp = (screenWidth * settings.bandWidth.clamp(0.4, 1.0)).round();
+    final heightDp =
+        (settings.fontSize * 1.35 * settings.bandLines.clamp(1, 12) + 14 + 46)
+            .round();
     _ensureListening();
     _pending = {
       'type': 'script',
       'pages': pages,
       'page': pageIndex,
       'settings': settings.exportVisual(),
+      'width': widthDp,
+      'height': heightDp,
     };
     if (await FlutterOverlayWindow.isActive()) {
       await FlutterOverlayWindow.shareData(_pending);
       return;
     }
-    final lines = settings.floatLines.clamp(1, 12);
-    final height = (settings.fontSize * 1.35 * lines + 52).round();
     await FlutterOverlayWindow.showOverlay(
-      height: height,
-      width: WindowSize.matchParent,
+      height: heightDp,
+      width: widthDp,
       alignment: OverlayAlignment.topCenter,
       flag: OverlayFlag.defaultFlag,
       enableDrag: true,

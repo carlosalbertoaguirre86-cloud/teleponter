@@ -77,11 +77,13 @@ class _PrompterScreenState extends State<PrompterScreen> {
 
   Future<void> _close() async {
     if (_closing) return;
-    _closing = true;
+    // Importante: reconstruir con canPop = true antes de salir; si no,
+    // PopScope bloquea la salida y la pantalla se queda abierta.
+    setState(() => _closing = true);
     if (_camera?.recording ?? false) await _camera!.toggleRecording();
     await c.stop();
     await WindowService.instance.exitPrompter();
-    if (mounted) Navigator.of(context).maybePop();
+    if (mounted) Navigator.of(context).pop();
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
@@ -159,10 +161,24 @@ class _PrompterScreenState extends State<PrompterScreen> {
                 height: 40,
                 child: Row(children: [
                   const SizedBox(width: 10),
-                  Waveform(levels: c.levels, active: c.isListening),
-                  const SizedBox(width: 8),
+                  if (c.usesMicrophone) ...[
+                    SizedBox(
+                      width: 40,
+                      child: Waveform(
+                          levels: c.levels, active: c.isListening, bars: 8),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(child: _progress()),
-                  ..._controls(compact: true),
+                  // Los botones se desplazan si la ventana es muy estrecha.
+                  Flexible(
+                    flex: 6,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      child: Row(children: _controls(compact: true)),
+                    ),
+                  ),
                 ]),
               ),
             ),
@@ -295,6 +311,17 @@ class _PrompterScreenState extends State<PrompterScreen> {
     );
   }
 
+  /// Grabar arranca el texto; detener la grabación lo pausa.
+  Future<void> _toggleRecording(CameraLayerController cam) async {
+    final wasRecording = cam.recording;
+    await cam.toggleRecording();
+    if (!wasRecording && cam.recording) {
+      await c.play();
+    } else if (wasRecording && !c.paused) {
+      await c.togglePause();
+    }
+  }
+
   Widget _recordButton(CameraLayerController cam) {
     return Positioned(
       right: 16,
@@ -321,7 +348,7 @@ class _PrompterScreenState extends State<PrompterScreen> {
           FloatingActionButton(
             heroTag: 'rec',
             backgroundColor: cam.recording ? Colors.white : Colors.red,
-            onPressed: cam.ready ? cam.toggleRecording : null,
+            onPressed: cam.ready ? () => _toggleRecording(cam) : null,
             tooltip: cam.recording ? 'Detener grabación' : 'Grabar vídeo',
             child: cam.busy
                 ? const SizedBox(
@@ -358,8 +385,38 @@ class _PrompterScreenState extends State<PrompterScreen> {
   Widget _overlays() {
     return Positioned.fill(
       child: IgnorePointer(
-        ignoring: c.countdown == null && c.error == null,
+        ignoring: c.countdown == null && c.error == null && !c.done,
         child: Stack(children: [
+          if (c.done && c.countdown == null)
+            Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  children: [
+                    const Text('Fin del guion',
+                        style: TextStyle(color: Colors.white, fontSize: 15)),
+                    TextButton.icon(
+                      onPressed: () => c.restart(),
+                      icon: const Icon(Icons.replay),
+                      label: const Text('Repetir'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _close,
+                      icon: const Icon(Icons.edit_note),
+                      label: const Text('Editar'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (c.countdown != null)
             Center(
               child: Container(
@@ -414,11 +471,31 @@ class _PrompterScreenState extends State<PrompterScreen> {
               ? const BoxConstraints(minWidth: 30, minHeight: 30)
               : null,
         );
+    final playing = !c.paused && !c.done;
     return [
+      if (compact)
+        btn(Icons.edit_note, 'Volver al editor (Esc)', _close)
+      else
+        TextButton.icon(
+          onPressed: _close,
+          icon: const Icon(Icons.edit_note, color: Colors.white),
+          label: const Text('Editar', style: TextStyle(color: Colors.white)),
+        ),
+      btn(Icons.replay, 'Empezar de nuevo', () => c.restart(play: false)),
+      btn(Icons.fast_rewind, 'Retroceder', () => c.skipWords(-6)),
+      IconButton.filled(
+        icon: Icon(playing ? Icons.pause : Icons.play_arrow,
+            size: size + 4, color: Colors.black),
+        tooltip: playing ? 'Pausa (Espacio)' : 'Iniciar (Espacio)',
+        onPressed: c.togglePause,
+        style: IconButton.styleFrom(backgroundColor: s.highlightColor),
+        constraints:
+            compact ? const BoxConstraints(minWidth: 30, minHeight: 30) : null,
+        padding: compact ? EdgeInsets.zero : const EdgeInsets.all(8),
+      ),
+      btn(Icons.fast_forward, 'Adelantar', () => c.skipWords(6)),
       if (c.pages.length > 1)
         btn(Icons.skip_previous, 'Página anterior', c.previousPage),
-      btn(c.paused ? Icons.play_arrow : Icons.pause,
-          c.paused ? 'Reanudar (Espacio)' : 'Pausa (Espacio)', c.togglePause),
       if (c.pages.length > 1)
         btn(Icons.skip_next, 'Página siguiente',
             c.hasNextPage ? c.nextPage : null),
@@ -447,16 +524,21 @@ class _PrompterScreenState extends State<PrompterScreen> {
           btn(_showCamera ? Icons.videocam_off : Icons.videocam,
               _showCamera ? 'Ocultar cámara' : 'Mostrar cámara', _toggleCamera),
       ],
-      btn(Icons.close, 'Cerrar (Esc)', _close),
       if (compact) const SizedBox(width: 6),
     ];
   }
 }
 
 class Waveform extends StatelessWidget {
-  const Waveform({super.key, required this.levels, required this.active});
+  const Waveform({
+    super.key,
+    required this.levels,
+    required this.active,
+    this.bars = 16,
+  });
   final List<double> levels;
   final bool active;
+  final int bars;
 
   @override
   Widget build(BuildContext context) {
@@ -467,7 +549,7 @@ class Waveform extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final l in levels.skip(levels.length - 16))
+            for (final l in levels.skip(levels.length - bars))
               Container(
                 width: 3,
                 height: (2 + l * 20).clamp(2.0, 22.0),
