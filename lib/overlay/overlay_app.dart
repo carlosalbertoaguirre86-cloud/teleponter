@@ -113,19 +113,28 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
         ),
         clipBehavior: Clip.antiAlias,
         child: c == null || s == null
-            ? const Center(
-                child: Text('Cargando guion…',
-                    style: TextStyle(color: Colors.white54)))
+            ? GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: _close,
+                child: const Center(
+                    child: Text('Cargando guion… (doble toque para cerrar)',
+                        style: TextStyle(color: Colors.white54))),
+              )
             : ListenableBuilder(
                 listenable: Listenable.merge([c, s]),
                 builder: (context, _) => Column(children: [
+                  // Doble toque sobre el texto: cerrar la ventana flotante.
                   Expanded(
-                    child: PrompterText(
-                      controller: c,
-                      compact: true,
-                      fontScale: 1 / 0.75,
-                      anchor: 6,
-                      overCamera: true,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onDoubleTap: _close,
+                      child: PrompterText(
+                        controller: c,
+                        compact: true,
+                        fontScale: 1 / 0.75,
+                        anchor: 6,
+                        overCamera: true,
+                      ),
                     ),
                   ),
                   SizedBox(height: 44, child: _controls(c, s)),

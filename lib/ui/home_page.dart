@@ -258,6 +258,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _closeFloating() async {
+    try {
+      if (await FloatingService.isActive()) {
+        await FloatingService.close();
+        _snack('Ventana flotante cerrada.');
+      } else {
+        _snack('No hay ninguna ventana flotante abierta.');
+      }
+    } catch (e) {
+      _snack('No se pudo cerrar: $e');
+    }
+  }
+
   /// Android: abre el teleprompter en una ventana flotante encima de
   /// cualquier app (cámara, Instagram, TikTok, Zoom...).
   Future<void> _startFloating() async {
@@ -483,7 +496,7 @@ class _HomePageState extends State<HomePage> {
               onSelectionChanged: (v) => s.guidance = v.first,
               showSelectedIcon: false,
             ),
-            Row(mainAxisSize: MainAxisSize.min, children: [
+            Wrap(runSpacing: 8, alignment: WrapAlignment.end, children: [
               if (multi)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -500,6 +513,15 @@ class _HomePageState extends State<HomePage> {
                     onPressed: _startFloating,
                     icon: const Icon(Icons.picture_in_picture_alt),
                     label: const Text('Flotante'),
+                  ),
+                ),
+              if (Platform.isAndroid)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: _closeFloating,
+                    icon: const Icon(Icons.close, color: Colors.redAccent),
+                    label: const Text('Cerrar flotante'),
                   ),
                 ),
               if (Platform.isAndroid)
