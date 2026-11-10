@@ -32,8 +32,6 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
   PrompterController? _c;
   String _lastKey = '';
   double _designH = 0; // alto previsto en dp
-  double _designW = 0;
-  int _resizeTries = 0;
 
   @override
   void initState() {
@@ -64,16 +62,19 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
       _settings = settings;
       _c = c;
       _designH = (msg['height'] as num?)?.toDouble() ?? 0;
-      _designW = (msg['width'] as num?)?.toDouble() ?? 0;
-      _resizeTries = 0;
     });
     // Empieza en pausa: pulsa ▶ cuando estés listo para grabar.
     await c.start(fromPage: page);
   }
 
   Future<void> _close() async {
-    await _c?.stop();
+    // Primero cerrar la ventana (lo importante), después limpiar.
+    final c = _c;
+    _lastKey = ''; // al volver a abrirla, se recarga el guion desde cero
     await FlutterOverlayWindow.closeOverlay();
+    await c?.stop();
+    if (mounted) setState(() => _c = null);
+    c?.dispose();
   }
 
   @override
@@ -88,21 +89,6 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
       if (_designH > 0 && box.maxHeight.isFinite) {
         final r = box.maxHeight / _designH;
         if (r > 1.3 || r < 0.75) scale = r;
-      }
-      // En algunos móviles (p. ej. Samsung con zoom de pantalla) la ventana
-      // sale más pequeña de lo pedido: se corrige su tamaño real una vez.
-      if (scale != 1.0 && _resizeTries < 2 && _designW > 0) {
-        _resizeTries++;
-        final w = _designW / scale, h = _designH / scale;
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          var width = w;
-          try {
-            final screen = await FlutterOverlayWindow.getScreenSize();
-            if (screen.x > 0) width = width.clamp(120, screen.x).toDouble();
-          } catch (_) {}
-          await FlutterOverlayWindow.resizeOverlay(
-              width.round(), h.round(), true);
-        });
       }
       final content = _content(c, s);
       if (scale == 1.0) return content;

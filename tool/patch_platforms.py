@@ -9,6 +9,7 @@ Es idempotente: se puede ejecutar varias veces sin duplicar cambios.
 import glob
 import os
 import re
+import shutil
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -124,7 +125,23 @@ def patch_windows():
     print("Runner de Windows actualizado")
 
 
+def install_signing_key():
+    """Usa siempre la misma firma para el .apk.
+
+    Sin esto, cada compilación de GitHub crea una clave nueva y Android no
+    deja instalar la versión nueva encima de la anterior.
+    """
+    src = os.path.join(ROOT, "tool", "debug.keystore")
+    if not os.path.exists(src):
+        return
+    dst_dir = os.path.join(os.path.expanduser("~"), ".android")
+    os.makedirs(dst_dir, exist_ok=True)
+    shutil.copyfile(src, os.path.join(dst_dir, "debug.keystore"))
+    print("Clave de firma fija instalada")
+
+
 if __name__ == "__main__":
+    install_signing_key()
     patch_android()
     patch_windows()
     sys.exit(0)

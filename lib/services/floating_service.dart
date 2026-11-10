@@ -52,6 +52,7 @@ class FloatingService {
     required List<String> pages,
     required int pageIndex,
     required double screenWidth,
+    required double pixelRatio,
   }) async {
     // Mismo tamaño que la franja de la app: ancho y líneas de Ajustes.
     final k = settings.floatScale.clamp(0.5, 2.5);
@@ -75,9 +76,12 @@ class FloatingService {
       await FlutterOverlayWindow.shareData(_pending);
       return;
     }
+    // OJO: aunque la documentación diga "dp", showOverlay crea la ventana
+    // con el valor en PÍXELES físicos (sólo resizeOverlay convierte).
+    // Por eso la ventana salía 3 veces más pequeña: se convierte aquí.
     await FlutterOverlayWindow.showOverlay(
-      height: heightDp,
-      width: widthDp,
+      height: (heightDp * pixelRatio).round(),
+      width: (widthDp * pixelRatio).round(),
       alignment: OverlayAlignment.topCenter,
       flag: OverlayFlag.defaultFlag,
       enableDrag: true,

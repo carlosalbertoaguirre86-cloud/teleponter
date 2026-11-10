@@ -6,6 +6,7 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../app_state.dart';
+import '../core/version.dart';
 import '../core/settings.dart';
 import '../services/window_service.dart';
 
@@ -277,6 +278,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
               child: Text(
+                'Teleponter versión $appVersion. '
                 'Teleponter está basado en Textream de Fatih Kadir Akin (licencia MIT). '
                 'Úsalo sólo en redes de confianza: la conexión remota no está cifrada.',
                 style: TextStyle(fontSize: 12, color: Colors.white54),
