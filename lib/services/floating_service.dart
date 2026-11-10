@@ -54,16 +54,20 @@ class FloatingService {
     required double screenWidth,
   }) async {
     // Mismo tamaño que la franja de la app: ancho y líneas de Ajustes.
-    final widthDp = (screenWidth * settings.bandWidth.clamp(0.4, 1.0)).round();
+    final k = settings.floatScale.clamp(0.5, 2.5);
+    // Al agrandar, la ventana también gana ancho (hasta el de la pantalla).
+    final widthDp = (screenWidth * settings.bandWidth.clamp(0.4, 1.0) * k)
+        .clamp(160.0, screenWidth)
+        .round();
+    final fontSize = settings.fontSize * k;
     final heightDp =
-        (settings.fontSize * 1.35 * settings.bandLines.clamp(1, 12) + 14 + 46)
-            .round();
+        (fontSize * 1.35 * settings.bandLines.clamp(1, 12) + 14 + 46).round();
     _ensureListening();
     _pending = {
       'type': 'script',
       'pages': pages,
       'page': pageIndex,
-      'settings': settings.exportVisual(),
+      'settings': {...settings.exportVisual(), 'fontSize': fontSize},
       'width': widthDp,
       'height': heightDp,
     };

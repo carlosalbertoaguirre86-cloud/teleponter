@@ -32,6 +32,8 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
   PrompterController? _c;
   String _lastKey = '';
   double _designH = 0; // alto previsto en dp
+  double _designW = 0;
+  int _resizeTries = 0;
 
   @override
   void initState() {
@@ -62,6 +64,8 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
       _settings = settings;
       _c = c;
       _designH = (msg['height'] as num?)?.toDouble() ?? 0;
+      _designW = (msg['width'] as num?)?.toDouble() ?? 0;
+      _resizeTries = 0;
     });
     // Empieza en pausa: pulsa ▶ cuando estés listo para grabar.
     await c.start(fromPage: page);
@@ -84,6 +88,21 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
       if (_designH > 0 && box.maxHeight.isFinite) {
         final r = box.maxHeight / _designH;
         if (r > 1.3 || r < 0.75) scale = r;
+      }
+      // En algunos móviles (p. ej. Samsung con zoom de pantalla) la ventana
+      // sale más pequeña de lo pedido: se corrige su tamaño real una vez.
+      if (scale != 1.0 && _resizeTries < 2 && _designW > 0) {
+        _resizeTries++;
+        final w = _designW / scale, h = _designH / scale;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          var width = w;
+          try {
+            final screen = await FlutterOverlayWindow.getScreenSize();
+            if (screen.x > 0) width = width.clamp(120, screen.x).toDouble();
+          } catch (_) {}
+          await FlutterOverlayWindow.resizeOverlay(
+              width.round(), h.round(), true);
+        });
       }
       final content = _content(c, s);
       if (scale == 1.0) return content;
@@ -153,6 +172,7 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(mainAxisSize: MainAxisSize.min, children: [
+              btn(Icons.close, _close, color: Colors.redAccent),
               btn(Icons.replay, () => c.restart(play: false)),
               btn(Icons.fast_rewind, () => c.skipWords(-6)),
               btn((c.paused || c.done) ? Icons.play_arrow : Icons.pause,
@@ -167,7 +187,6 @@ class _OverlayPrompterState extends State<_OverlayPrompter> {
                   () => s.fontSize = (s.fontSize - 2).clamp(14, 72)),
               btn(Icons.text_increase,
                   () => s.fontSize = (s.fontSize + 2).clamp(14, 72)),
-              btn(Icons.close, _close),
             ]),
           ),
         ),

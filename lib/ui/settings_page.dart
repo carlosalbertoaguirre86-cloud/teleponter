@@ -200,6 +200,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     (v) => s.bandWidth = v,
                     label: '${(s.bandWidth * 100).round()} %'),
               ],
+              _slider('Tamaño de la ventana flotante', s.floatScale, 0.5, 2.5,
+                  20, (v) => s.floatScale = v,
+                  label: '${(s.floatScale * 100).round()} %'),
             ],
             _header('Texto'),
             ListTile(

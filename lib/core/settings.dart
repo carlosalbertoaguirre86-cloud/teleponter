@@ -235,6 +235,10 @@ class AppSettings extends ChangeNotifier {
   double get bandWidth => _d('bandWidth', 0.8);
   set bandWidth(double v) => _setD('bandWidth', v);
 
+  /// Tamaño de la ventana flotante respecto a la franja (1 = igual).
+  double get floatScale => _d('floatScale', 1.0);
+  set floatScale(double v) => _setD('floatScale', v);
+
   // Remoto / Director
   bool get remoteEnabled => _b('remoteEnabled', false);
   set remoteEnabled(bool v) => _setB('remoteEnabled', v);

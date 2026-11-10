@@ -267,6 +267,12 @@ class _HomePageState extends State<HomePage> {
       _snack('Escribe o pega un guion primero.');
       return;
     }
+    // Si ya está abierta, el mismo botón la cierra.
+    if (await FloatingService.isActive()) {
+      await FloatingService.close();
+      _snack('Ventana flotante cerrada.');
+      return;
+    }
     if (!await FloatingService.hasPermission()) {
       if (!mounted) return;
       final ok = await showDialog<bool>(
